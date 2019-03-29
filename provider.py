@@ -2,6 +2,10 @@ import os
 import sys
 import numpy as np
 import h5py
+import wget
+import shutil
+from zipfile import ZipFile
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(BASE_DIR)
 
@@ -15,6 +19,16 @@ if not os.path.exists(os.path.join(DATA_DIR, 'modelnet40_ply_hdf5_2048')):
     os.system('wget %s; unzip %s' % (www, zipfile))
     os.system('mv %s %s' % (zipfile[:-4], DATA_DIR))
     os.system('rm %s' % (zipfile))
+    '''
+    os.system("python wget %s".format(www))
+    try:
+      filename = wget.download(www)
+    except Exception as e:
+      sys.err("Cannot download for some reasons: {}".format(e))
+    shutil.move(filename, DATA_DIR)
+    with ZipFile(os.path.join(DATA_DIR, filename), 'r') as zip_file:
+      zip_file.extractall()
+    '''
 
 
 def shuffle_data(data, labels):
