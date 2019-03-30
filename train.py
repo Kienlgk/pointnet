@@ -26,6 +26,9 @@ parser.add_argument('--momentum', type=float, default=0.9, help='Initial learnin
 parser.add_argument('--optimizer', default='adam', help='adam or momentum [default: adam]')
 parser.add_argument('--decay_step', type=int, default=200000, help='Decay step for lr decay [default: 200000]')
 parser.add_argument('--decay_rate', type=float, default=0.7, help='Decay rate for lr decay [default: 0.8]')
+parser.add_argument('--save_step', type=int, default=1, help="Save weights after ? steps")
+parser.add_argument('--load', type=int, default= 0, help='load saved checkpoint [default: 0]')
+
 FLAGS = parser.parse_args()
 
 
@@ -38,6 +41,8 @@ MOMENTUM = FLAGS.momentum
 OPTIMIZER = FLAGS.optimizer
 DECAY_STEP = FLAGS.decay_step
 DECAY_RATE = FLAGS.decay_rate
+CHECKPOINT = FLAGS.load
+SAVE_STEP = FLAGS.save_step
 
 MODEL = importlib.import_module(FLAGS.model) # import network module
 MODEL_FILE = os.path.join(BASE_DIR, 'models', FLAGS.model+'.py')
@@ -90,6 +95,17 @@ def get_bn_decay(batch):
     bn_decay = tf.minimum(BN_DECAY_CLIP, 1 - bn_momentum)
     return bn_decay
 
+def load_net(sess, tf_saver, checkpoint):
+    if checkpoint == -1:
+        # TODO: get latest checkpoint
+        pass
+    if checkpoint == 0:
+        log_string('Init new training process.')
+    else:
+        log_string('Start loading at checkpoint {}.'.format(checkpoint))
+        tf_saver.restore(sess, os.path.join(LOG_DIR, "classify__" + str(checkpoint) + ".ckpt"))
+    return checkpoint
+    
 def train():
     with tf.Graph().as_default():
         with tf.device('/gpu:'+str(GPU_INDEX)):
@@ -124,6 +140,7 @@ def train():
             # Add ops to save and restore all the variables.
             saver = tf.train.Saver()
             
+
         # Create a session
         config = tf.ConfigProto()
         config.gpu_options.allow_growth = True
@@ -137,7 +154,8 @@ def train():
         train_writer = tf.summary.FileWriter(os.path.join(LOG_DIR, 'train'),
                                   sess.graph)
         test_writer = tf.summary.FileWriter(os.path.join(LOG_DIR, 'test'))
-
+        # Load net
+        loaded_checkpoint = load_net(sess, saver, CHECKPOINT)
         # Init variables
         init = tf.global_variables_initializer()
         # To fix the bug introduced in TF 0.12.1 as in
@@ -162,8 +180,8 @@ def train():
             eval_one_epoch(sess, ops, test_writer)
             
             # Save the variables to disk.
-            if epoch % 10 == 0:
-                save_path = saver.save(sess, os.path.join(LOG_DIR, "model_" + str(epoch) + ".ckpt"))
+            if epoch+1 % SAVE_STEP == 0:
+                save_path = saver.save(sess, os.path.join(LOG_DIR, "classify_" + str(epoch+loaded_checkpoint+1) + ".ckpt"))
                 log_string("Model saved in file: %s" % save_path)
 
 

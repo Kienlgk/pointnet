@@ -55,6 +55,7 @@ data_download/
 **/hdf5_data/
 **/PartAnnotation/
 **/testing_ply_file_list.txt
+part_seg/train.py
 log/checkpoint
 log/log_train.txt
 sample_scripts

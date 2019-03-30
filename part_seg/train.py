@@ -15,11 +15,14 @@ import pointnet_part_seg as model
 # DEFAULT SETTINGS
 parser = argparse.ArgumentParser()
 parser.add_argument('--gpu', type=int, default=1, help='GPU to use [default: GPU 0]')
-parser.add_argument('--batch', type=int, default=32, help='Batch Size during training [default: 32]')
-parser.add_argument('--epoch', type=int, default=200, help='Epoch to run [default: 50]')
+parser.add_argument('--batch', type=int, default=16, help='Batch Size during training [default: 16], suitable for 8Gb VRAM GPU')
+parser.add_argument('--epoch', type=int, default=50, help='Epoch to run [default: 50]')
 parser.add_argument('--point_num', type=int, default=2048, help='Point Number [256/512/1024/2048]')
 parser.add_argument('--output_dir', type=str, default='train_results', help='Directory that stores all training logs and trained models')
 parser.add_argument('--wd', type=float, default=0, help='Weight Decay [Default: 0.0]')
+parser.add_argument('--save_step', type=int, default=1, help="Save weights after ? steps [default: 1]")
+parser.add_argument('--load', type=int, default= 0, help='load saved checkpoint [default: 0]')
+
 FLAGS = parser.parse_args()
 
 hdf5_data_dir = os.path.join(BASE_DIR, './hdf5_data')
@@ -28,9 +31,10 @@ hdf5_data_dir = os.path.join(BASE_DIR, './hdf5_data')
 point_num = FLAGS.point_num
 batch_size = FLAGS.batch
 output_dir = FLAGS.output_dir
-
+save_step = FLAGS.save_step
 if not os.path.exists(output_dir):
     os.mkdir(output_dir)
+# write logs to the disk
 
 color_map_file = os.path.join(hdf5_data_dir, 'part_color_mapping.json')
 color_map = json.load(open(color_map_file, 'r'))
@@ -62,6 +66,8 @@ BN_DECAY_CLIP = 0.99
 BASE_LEARNING_RATE = 0.001
 MOMENTUM = 0.9
 TRAINING_EPOCHES = FLAGS.epoch
+CHECKPOINT = FLAGS.load
+
 print('### Training epoch: {0}'.format(TRAINING_EPOCHES))
 
 TRAINING_FILE_LIST = os.path.join(hdf5_data_dir, 'train_hdf5_file_list.txt')
@@ -79,9 +85,22 @@ SUMMARIES_FOLDER =  os.path.join(output_dir, 'summaries')
 if not os.path.exists(SUMMARIES_FOLDER):
     os.mkdir(SUMMARIES_FOLDER)
 
+flog = open(os.path.join(LOG_STORAGE_PATH, 'log.txt'), 'w')
+
 def printout(flog, data):
 	print(data)
 	flog.write(data + '\n')
+
+def load_net(sess, tf_saver, checkpoint):
+    if checkpoint == -1:
+        # TODO: get latest checkpoint
+        pass
+    elif checkpoint == 0:
+        printout(flog, 'Init new training process.')
+    else:
+        printout(flog, 'Start loading at checkpoint {}.'.format(checkpoint))
+        tf_saver.restore(sess, os.path.join(MODEL_STORAGE_PATH, "epoch_" + str(checkpoint) + ".ckpt"))
+    return checkpoint
 
 def placeholder_inputs():
     pointclouds_ph = tf.placeholder(tf.float32, shape=(batch_size, point_num, 3))
@@ -95,6 +114,7 @@ def convert_label_to_one_hot(labels):
     for idx in range(labels.shape[0]):
         label_one_hot[idx, labels[idx]] = 1
     return label_one_hot
+
 
 def train():
     with tf.Graph().as_default():
@@ -179,9 +199,12 @@ def train():
         config.gpu_options.allow_growth = True
         config.allow_soft_placement = True
         sess = tf.Session(config=config)
-        
-        init = tf.global_variables_initializer()
-        sess.run(init)
+        # Load net
+        loaded_checkpoint = load_net(sess, saver, CHECKPOINT)
+        # Init variables
+        init = tf.global_variables()
+        unini = [var for var in init if not sess.run(tf.is_variable_initialized(var))]
+        sess.run(tf.variables_initializer(var_list=unini))
 
         train_writer = tf.summary.FileWriter(SUMMARIES_FOLDER + '/train', sess.graph)
         test_writer = tf.summary.FileWriter(SUMMARIES_FOLDER + '/test')
@@ -195,8 +218,7 @@ def train():
         fcmd.write(str(FLAGS))
         fcmd.close()
 
-        # write logs to the disk
-        flog = open(os.path.join(LOG_STORAGE_PATH, 'log.txt'), 'w')
+        
 
         def train_one_epoch(train_file_idx, epoch_num):
             is_training = True
@@ -374,15 +396,15 @@ def train():
             printout(flog, '\n<<< Testing on the test dataset ...')
             eval_one_epoch(epoch)
 
-            printout(flog, '\n>>> Training for the epoch %d/%d ...' % (epoch, TRAINING_EPOCHES))
+            printout(flog, '\n>>> Training for the epoch %d/%d ...' % (epoch+loaded_checkpoint+1, TRAINING_EPOCHES))
 
             train_file_idx = np.arange(0, len(train_file_list))
             np.random.shuffle(train_file_idx)
 
             train_one_epoch(train_file_idx, epoch)
 
-            if (epoch+1) % 10 == 0:
-                cp_filename = saver.save(sess, os.path.join(MODEL_STORAGE_PATH, 'epoch_' + str(epoch+1)+'.ckpt'))
+            if (epoch+1) % save_step == 0:
+                cp_filename = saver.save(sess, os.path.join(MODEL_STORAGE_PATH, 'epoch_' + str(epoch+loaded_checkpoint+1)+'.ckpt'))
                 printout(flog, 'Successfully store the checkpoint model into ' + cp_filename)
 
             flog.flush()
