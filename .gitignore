@@ -44,7 +44,7 @@ local.properties
 gradleBuild
 
 # Project files
-**./*.zip
+**/*.zip
 **/*.h5
 **/events.out.tfevents.*
 **/*.meta
@@ -53,6 +53,8 @@ gradleBuild
 data/
 data_download/
 **/hdf5_data/
+**/PartAnnotation/
+**/testing_ply_file_list.txt
 log/checkpoint
 log/log_train.txt
 sample_scripts
