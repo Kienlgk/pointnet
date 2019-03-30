@@ -42,6 +42,9 @@ xcuserdata/**
 *.iml
 local.properties
 gradleBuild
+
+# Project files
+**./*.zip
 **/*.h5
 **/events.out.tfevents.*
 **/*.meta
@@ -49,6 +52,9 @@ gradleBuild
 **/*.data-*
 data/
 data_download/
+**/hdf5_data/
 log/checkpoint
 log/log_train.txt
 sample_scripts
+**/log/
+**/train_results/
