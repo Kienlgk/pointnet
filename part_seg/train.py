@@ -15,7 +15,7 @@ import pointnet_part_seg as model
 # DEFAULT SETTINGS
 parser = argparse.ArgumentParser()
 parser.add_argument('--gpu', type=int, default=1, help='GPU to use [default: GPU 0]')
-parser.add_argument('--batch', type=int, default=32, help='Batch Size during training [default: 32]')
+parser.add_argument('--batch', type=int, default=16, help='Batch Size during training [default: 32]')
 parser.add_argument('--epoch', type=int, default=200, help='Epoch to run [default: 50]')
 parser.add_argument('--point_num', type=int, default=2048, help='Point Number [256/512/1024/2048]')
 parser.add_argument('--output_dir', type=str, default='train_results', help='Directory that stores all training logs and trained models')
@@ -381,9 +381,9 @@ def train():
 
             train_one_epoch(train_file_idx, epoch)
 
-            if (epoch+1) % 10 == 0:
-                cp_filename = saver.save(sess, os.path.join(MODEL_STORAGE_PATH, 'epoch_' + str(epoch+1)+'.ckpt'))
-                printout(flog, 'Successfully store the checkpoint model into ' + cp_filename)
+            # if (epoch+1) % 10 == 0:
+            cp_filename = saver.save(sess, os.path.join(MODEL_STORAGE_PATH, 'epoch_' + str(epoch+1)+'.ckpt'))
+            printout(flog, 'Successfully store the checkpoint model into ' + cp_filename)
 
             flog.flush()
 
